@@ -104,7 +104,7 @@ GLOBAL_VAR_INIT(fscpassword, generate_password())
 /area/ruin/space/has_grav/syndicate_forgotten_ship
 	name = "SYN-C Starfury"
 	icon_state = "syndie-ship"
-	ambientsounds = list('sound/ambience/ambidanger.ogg', 'sound/ambience/ambidanger2.ogg', 'sound/ambience/ambigen9.ogg', 'sound/ambience/ambigen10.ogg')
+	ambientsounds = list('sound/ambience/ambidanger.ogg', 'sound/ambience/ambidanger2.ogg', 'sound/ambience/ambigen8.ogg', 'sound/ambience/ambigen9.ogg')
 
 /area/ruin/space/has_grav/syndicate_forgotten_ship/medicial
 	name = "SYN-C Starfury Medbay"
@@ -142,85 +142,10 @@ GLOBAL_VAR_INIT(fscpassword, generate_password())
 /area/ruin/space/has_grav/syndicate_forgotten_cargopod
 	name = "Syndicate Resupply Pod"
 	icon_state = "syndie-ship"
-	ambientsounds = list('sound/ambience/ambigen4.ogg', 'sound/ambience/signal.ogg')
+	ambientsounds = list('sound/ambience/ambigen3.ogg', 'sound/ambience/signal.ogg')
 
 /area/ruin/space/has_grav/powered/syndicate_forgotten_vault
 	name = "SYN-C Starfury Vault"
 	icon_state = "syndie-ship"
 	ambientsounds = list('sound/ambience/ambitech2.ogg', 'sound/ambience/ambitech3.ogg')
 	area_flags = NOTELEPORT | UNIQUE_AREA
-
-//Special NT NPCs
-
-/mob/living/simple_animal/hostile/nanotrasen/ranged/assault
-	name = "Nanotrasen Assault Officer"
-	desc = "An elite Nanotrasen assault operative. Death to the Syndicate."
-	ranged = TRUE
-	rapid = 4
-	rapid_fire_delay = 1
-	rapid_melee = 1
-	retreat_distance = 2
-	minimum_distance = 4
-	casingtype = /obj/item/ammo_casing/a556/weak
-	projectilesound = 'sound/weapons/gun/smg/shot.ogg'
-	loot = list(/obj/effect/mob_spawn/corpse/human/nanotrasenassaultsoldier)
-	mob_spawner = /obj/effect/mob_spawn/corpse/human/nanotrasenassaultsoldier
-	held_item = /obj/item/gun/ballistic/automatic/ar
-
-/mob/living/simple_animal/hostile/nanotrasen/elite
-	name = "Nanotrasen Elite Assault Officer"
-	desc = "Pray for your life, Syndicate. Run while you still can."
-	maxHealth = 150
-	health = 150
-	melee_damage_lower = 13
-	melee_damage_upper = 18
-	ranged = TRUE
-	rapid = 3
-	rapid_fire_delay = 5
-	rapid_melee = 3
-	retreat_distance = 0
-	minimum_distance = 1
-	atmos_requirements = list("min_oxy" = 0, "max_oxy" = 0, "min_plas" = 0, "max_plas" = 0, "min_co2" = 0, "max_co2" = 0, "min_n2" = 0, "max_n2" = 0)
-	minbodytemp = 0
-	projectiletype = /obj/projectile/beam/laser
-	projectilesound = 'sound/weapons/laser.ogg'
-	loot = list(/obj/effect/gibspawner/human)
-	faction = list(ROLE_DEATHSQUAD)
-	mob_spawner = /obj/effect/mob_spawn/corpse/human/nanotrasenelitesoldier
-	held_item = /obj/item/gun/energy/pulse/carbine/lethal
-
-//fluff terminals
-
-/obj/machinery/computer/terminal/forgottenship
-	tguitheme = "syndicate"
-
-/obj/machinery/computer/terminal/forgottenship/ntsalvage
-	tguitheme = "nanotrasen"
-	name = "shuttle console"
-	icon_screen = "shuttle"
-	upperinfo = "Nanotrasen Salvage Vessel Flight Controls"
-	content = list ("<center><b>Nanotrasen Salvage Cutter</b></center><BR>Vessel controls locked. Please input security passkey to unlock.")
-
-/obj/machinery/computer/terminal/forgottenship/helm
-	name = "helms computer"
-	desc = "The flight console of the SYN-C Starfury."
-	icon_screen = "syndishuttle"
-	icon_keyboard = "syndie_key"
-	upperinfo = "SYN-C Starfury Helm"
-	content = list("<center><b>SYN-C Starfury<BR><BR><BR>System HD-10180</b><BR><BR>No contact with Syndicate Command<BR>Engine status: Connection Failure - Unable to reconnect<BR><BR><b>Unable to relocate.</b></center>")
-
-/obj/machinery/computer/terminal/forgottenship/comms
-	name = "old comms console"
-	desc = "A malfunctioning communications terminal."
-	upperinfo = "SYN-C Starfury Communications"
-	icon_screen = "commsyndie"
-	icon_keyboard = "syndie_key"
-	content = list("<B>Broadcaster Status:</B> ERROR! Unable to continue.")
-
-/obj/machinery.computer/terminal/forgottenship/dronefighter
-	name = "drone fighter control terminal"
-	desc = "A seemingly-simple terminal capable of controlling several wings of drone fighters with the aid of advanced artificial intelligence systems."
-	upperinfo = "SYN-C Starfury Drone Fighter Controls"
-	icon_screen = "commsyndie"
-	icon_keyboard = "syndie_key"
-	content = list("SyndOS 3.11<BR><BR>Cybersun Internal UEFI (c) 2521 - Internal Use Only<BR>CPU: Functional<BR>RAM: Functional<BR>GPU: Functional<BR>Initialising Drone Control...<BR>Warning: Initialisation time exceeding 50 processor cycles. Report to nearest technician.<BR>Warning: critical initialisation failure. Repair required. Please contact a Cybersun-licensed technician.")

@@ -2,7 +2,7 @@
 	name = "proximity sensor"
 	desc = "Used for scanning and alerting when someone enters a certain proximity."
 	icon_state = "prox"
-	custom_materials = list(/datum/material/iron=800, /datum/material/glass=200)
+	custom_materials = list(/datum/material/iron=SMALL_MATERIAL_AMOUNT*8, /datum/material/glass=SMALL_MATERIAL_AMOUNT * 2)
 	attachable = TRUE
 	drop_sound = 'sound/items/handling/component_drop.ogg'
 	pickup_sound = 'sound/items/handling/component_pickup.ogg'
@@ -134,7 +134,7 @@
 		. += "prox_scanning"
 		attached_overlays += "prox_scanning"
 
-/obj/item/assembly/prox_sensor/ui_status(mob/user)
+/obj/item/assembly/prox_sensor/ui_status(mob/user, datum/ui_state/state)
 	if(is_secured(user))
 		return ..()
 	return UI_CLOSE

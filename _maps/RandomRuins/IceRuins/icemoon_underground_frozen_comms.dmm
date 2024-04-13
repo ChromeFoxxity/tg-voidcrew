@@ -3,18 +3,12 @@
 /turf/open/floor/pod/dark,
 /area/ruin/space/has_grav/listeningstation)
 "aU" = (
-/turf/template_noop,
-/area/template_noop)
-"bi" = (
-/obj/structure/cable,
-/obj/item/storage/toolbox/syndicate,
-/obj/structure/closet/syndicate/personal,
-/obj/item/gun/ballistic/automatic/pistol/clandestine,
-/obj/item/ammo_box/magazine/m10mm,
-/obj/item/ammo_box/magazine/m10mm,
-/obj/item/clothing/mask/chameleon/gps,
-/turf/open/floor/pod/dark,
-/area/ruin/space/has_grav/listeningstation)
+/turf/open/genturf,
+/area/icemoon/underground/unexplored/rivers)
+"bh" = (
+/mob/living/basic/mining/wolf,
+/turf/open/floor/plating/snowed/smoothed/icemoon,
+/area/icemoon/underground/explored)
 "cv" = (
 /obj/structure/flora/rock/pile/icy/style_random,
 /obj/machinery/light/small/directional/north,
@@ -76,19 +70,15 @@
 "oj" = (
 /obj/effect/decal/cleanable/dirt,
 /obj/structure/bed,
-/obj/item/bedsheet/dorms,
-/obj/effect/mob_spawn/ghost_role/human/snow_operative,
+/obj/effect/spawner/random/bedsheet,
 /turf/open/floor/iron/grimy{
 	initial_gas_mix = "ICEMOON_ATMOS"
 	},
-/area/ruin/space/has_grav/listeningstation)
-"ow" = (
-/obj/machinery/light/small/directional/south,
-/obj/effect/turf_decal/stripes/line{
-	dir = 4
-	},
-/obj/machinery/telecomms/processor/preset_one/birdstation{
-	name = "processor unit"
+/area/ruin/powered/shuttle)
+"oD" = (
+/mob/living/basic/mining/wolf,
+/turf/open/floor/iron/showroomfloor{
+	initial_gas_mix = "ICEMOON_ATMOS"
 	},
 /turf/open/floor/pod/dark,
 /area/ruin/space/has_grav/listeningstation)
@@ -108,11 +98,15 @@
 /turf/open/floor/pod/dark,
 /area/ruin/space/has_grav/listeningstation)
 "rm" = (
-/obj/machinery/computer/communications/syndicate{
-	dir = 4
+/obj/structure/table/reinforced/rglass,
+/turf/open/floor/iron/showroomfloor{
+	initial_gas_mix = "ICEMOON_ATMOS"
 	},
-/turf/open/floor/pod/dark,
-/area/ruin/space/has_grav/listeningstation)
+/area/ruin/powered/shuttle)
+"rn" = (
+/mob/living/basic/mining/wolf,
+/turf/open/floor/plating/icemoon,
+/area/ruin/powered/shuttle)
 "rS" = (
 /obj/structure/flora/tree/pine/style_random,
 /obj/structure/flora/grass/green/style_random,
@@ -227,6 +221,14 @@
 /obj/structure/fence/cut/large,
 /turf/open/misc/asteroid/snow/icemoon,
 /area/icemoon/underground/explored)
+"CH" = (
+/obj/structure/window/reinforced/spawner/directional/south,
+/obj/effect/spawner/structure/window/hollow/reinforced/directional{
+	dir = 1
+	},
+/obj/effect/decal/cleanable/glass,
+/turf/open/floor/plating/icemoon,
+/area/ruin/powered/shuttle)
 "Et" = (
 /obj/effect/turf_decal/stripes/line{
 	dir = 4
@@ -245,6 +247,7 @@
 /turf/open/floor/pod/dark,
 /area/ruin/space/has_grav/listeningstation)
 "FK" = (
+/mob/living/basic/mining/wolf,
 /obj/machinery/light/small/broken/directional/north,
 /turf/open/floor/plating/snowed/smoothed/icemoon,
 /area/ruin/space/has_grav/listeningstation)
@@ -255,7 +258,22 @@
 /turf/open/floor/iron/grimy{
 	initial_gas_mix = "ICEMOON_ATMOS"
 	},
-/area/ruin/space/has_grav/listeningstation)
+/area/ruin/powered/shuttle)
+"GH" = (
+/obj/effect/spawner/structure/window/hollow/reinforced/directional{
+	dir = 1
+	},
+/obj/item/shard,
+/obj/effect/decal/cleanable/glass,
+/turf/open/floor/plating/icemoon,
+/area/ruin/powered/shuttle)
+"GQ" = (
+/obj/structure/window/reinforced/spawner/directional/south,
+/obj/structure/grille,
+/obj/item/shard,
+/obj/effect/decal/cleanable/glass,
+/turf/open/floor/plating/icemoon,
+/area/ruin/powered/shuttle)
 "HT" = (
 /obj/effect/spawner/random/maintenance/three,
 /obj/structure/cable,

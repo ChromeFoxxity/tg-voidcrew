@@ -34,7 +34,7 @@ multiple modular subtrees with behaviors
 	///Stored arguments for behaviors given during their initial creation
 	var/list/behavior_args = list()
 	///Tracks recent pathing attempts, if we fail too many in a row we fail our current plans.
-	var/pathing_attempts
+	var/consecutive_pathing_attempts
 	///Can the AI remain in control if there is a client?
 	var/continue_processing_when_client = FALSE
 	///distance to give up on target
@@ -50,14 +50,16 @@ multiple modular subtrees with behaviors
 	// Movement related things here
 	///Reference to the movement datum we use. Is a type on initialize but becomes a ref afterwards.
 	var/datum/ai_movement/ai_movement = /datum/ai_movement/dumb
-	///Cooldown until next movement
-	COOLDOWN_DECLARE(movement_cooldown)
 	///Delay between movements. This is on the controller so we can keep the movement datum singleton
 	var/movement_delay = 0.1 SECONDS
 
 	// The variables below are fucking stupid and should be put into the blackboard at some point.
 	///AI paused time
 	var/paused_until = 0
+	///Can this AI idle?
+	var/can_idle = TRUE
+	///What distance should we be checking for interesting things when considering idling/deidling? Defaults to AI_DEFAULT_INTERESTING_DIST
+	var/interesting_dist = AI_DEFAULT_INTERESTING_DIST
 
 /datum/ai_controller/New(atom/new_pawn)
 	change_ai_movement_type(ai_movement)
@@ -66,11 +68,14 @@ multiple modular subtrees with behaviors
 	if(idle_behavior)
 		idle_behavior = new idle_behavior()
 
-	PossessPawn(new_pawn)
+	if(!isnull(new_pawn)) // unit tests need the ai_controller to exist in isolation due to list schenanigans i hate it here
+		PossessPawn(new_pawn)
 
-/datum/ai_controller/Destroy(force, ...)
-	set_ai_status(AI_STATUS_OFF)
+/datum/ai_controller/Destroy(force)
 	UnpossessPawn(FALSE)
+	set_movement_target(type, null)
+	if(ai_movement.moving_controllers[src])
+		ai_movement.stop_moving_towards(src)
 	return ..()
 
 ///Sets the current movement target, with an optional param to override the movement behavior
@@ -114,35 +119,69 @@ multiple modular subtrees with behaviors
 	pawn = new_pawn
 	pawn.ai_controller = src
 
+	var/turf/pawn_turf = get_turf(pawn)
+	if(pawn_turf)
+		SSai_controllers.ai_controllers_by_zlevel[pawn_turf.z] += src
+
 	SEND_SIGNAL(src, COMSIG_AI_CONTROLLER_POSSESSED_PAWN)
 
 	reset_ai_status()
+	RegisterSignal(pawn, COMSIG_MOVABLE_Z_CHANGED, PROC_REF(on_changed_z_level))
 	RegisterSignal(pawn, COMSIG_MOB_STATCHANGE, PROC_REF(on_stat_changed))
 	RegisterSignal(pawn, COMSIG_MOB_LOGIN, PROC_REF(on_sentience_gained))
+	RegisterSignal(pawn, COMSIG_QDELETING, PROC_REF(on_pawn_qdeleted))
 
 /// Sets the AI on or off based on current conditions, call to reset after you've manually disabled it somewhere
 /datum/ai_controller/proc/reset_ai_status()
 	set_ai_status(get_expected_ai_status())
 
-/// Returns what the AI status should be based on current conditions.
+/**
+ * Gets the AI status we expect the AI controller to be on at this current moment.
+ * Returns AI_STATUS_OFF if it's inhabited by a Client and shouldn't be, if it's dead and cannot act while dead, or is on a z level without clients.
+ * Returns AI_STATUS_ON otherwise.
+ */
 /datum/ai_controller/proc/get_expected_ai_status()
-	var/final_status = AI_STATUS_ON
-
 	if (!ismob(pawn))
-		return final_status
+		return AI_STATUS_ON
 
 	var/mob/living/mob_pawn = pawn
-
 	if(!continue_processing_when_client && mob_pawn.client)
-		final_status = AI_STATUS_OFF
-
-	if(ai_traits & CAN_ACT_WHILE_DEAD)
-		return final_status
+		return AI_STATUS_OFF
 
 	if(mob_pawn.stat == DEAD)
-		final_status = AI_STATUS_OFF
+		if(ai_traits & CAN_ACT_WHILE_DEAD)
+			return AI_STATUS_ON
+		return AI_STATUS_OFF
+	
+	var/turf/pawn_turf = get_turf(mob_pawn)
+#ifdef TESTING
+	if(!pawn_turf)
+		CRASH("AI controller [src] controlling pawn ([pawn]) is not on a turf.")
+#endif
+	if(!length(SSmobs.clients_by_zlevel[pawn_turf.z]))
+		return AI_STATUS_OFF
+	return AI_STATUS_ON
 
-	return final_status
+/datum/ai_controller/proc/get_current_turf()
+	var/mob/living/mob_pawn = pawn
+	var/turf/pawn_turf = get_turf(mob_pawn)
+	to_chat(world, "[pawn_turf]")
+
+///Called when the AI controller pawn changes z levels, we check if there's any clients on the new one and wake up the AI if there is.
+/datum/ai_controller/proc/on_changed_z_level(atom/source, turf/old_turf, turf/new_turf, same_z_layer, notify_contents)
+	SIGNAL_HANDLER
+	var/mob/mob_pawn = pawn
+	if((mob_pawn?.client && !continue_processing_when_client))
+		return
+	if(old_turf)
+		SSai_controllers.ai_controllers_by_zlevel[old_turf.z] -= src
+	if(new_turf)
+		SSai_controllers.ai_controllers_by_zlevel[new_turf.z] += src
+		var/new_level_clients = SSmobs.clients_by_zlevel[new_turf.z].len
+		if(new_level_clients)
+			set_ai_status(AI_STATUS_IDLE)
+		else
+			set_ai_status(AI_STATUS_OFF)
 
 ///Abstract proc for initializing the pawn to the new controller
 /datum/ai_controller/proc/TryPossessPawn(atom/new_pawn)
@@ -150,14 +189,22 @@ multiple modular subtrees with behaviors
 
 ///Proc for deinitializing the pawn to the old controller
 /datum/ai_controller/proc/UnpossessPawn(destroy)
-	UnregisterSignal(pawn, list(COMSIG_MOB_LOGIN, COMSIG_MOB_LOGOUT, COMSIG_MOB_STATCHANGE))
+	if(isnull(pawn))
+		return // instantiated without an applicable pawn, fine
+
+	set_ai_status(AI_STATUS_OFF)
+	UnregisterSignal(pawn, list(COMSIG_MOVABLE_Z_CHANGED, COMSIG_MOB_LOGIN, COMSIG_MOB_LOGOUT, COMSIG_MOB_STATCHANGE, COMSIG_QDELETING))
 	if(ai_movement.moving_controllers[src])
 		ai_movement.stop_moving_towards(src)
+	var/turf/pawn_turf = get_turf(pawn)
+	if(pawn_turf)
+		SSai_controllers.ai_controllers_by_zlevel[pawn_turf.z] -= src
+	if(ai_status)
+		SSai_controllers.ai_controllers_by_status[ai_status] -= src
 	pawn.ai_controller = null
 	pawn = null
 	if(destroy)
 		qdel(src)
-	return
 
 ///Returns TRUE if the ai controller can actually run at the moment.
 /datum/ai_controller/proc/able_to_run()
@@ -170,6 +217,7 @@ multiple modular subtrees with behaviors
 
 ///Runs any actions that are currently running
 /datum/ai_controller/process(seconds_per_tick)
+
 	if(!able_to_run())
 		SSmove_manager.stop_looping(pawn) //stop moving
 		return //this should remove them from processing in the future through event-based stuff.
@@ -200,7 +248,10 @@ multiple modular subtrees with behaviors
 			if(!current_movement_target)
 				stack_trace("[pawn] wants to perform action type [current_behavior.type] which requires movement, but has no current movement target!")
 				return //This can cause issues, so don't let these slide.
-			if(current_behavior.required_distance >= get_dist(pawn, current_movement_target)) ///Are we close enough to engage?
+			///Stops pawns from performing such actions that should require the target to be adjacent.
+			var/atom/movable/moving_pawn = pawn
+			var/can_reach = !(current_behavior.behavior_flags & AI_BEHAVIOR_REQUIRE_REACH) || moving_pawn.CanReach(current_movement_target)
+			if(can_reach && current_behavior.required_distance >= get_dist(moving_pawn, current_movement_target)) ///Are we close enough to engage?
 				if(ai_movement.moving_controllers[src] == current_movement_target) //We are close enough, if we're moving stop.
 					ai_movement.stop_moving_towards(src)
 
@@ -226,6 +277,8 @@ multiple modular subtrees with behaviors
 ///Determines whether the AI can currently make a new plan
 /datum/ai_controller/proc/able_to_plan()
 	. = TRUE
+	if(QDELETED(pawn))
+		return FALSE
 	for(var/datum/ai_behavior/current_behavior as anything in current_behaviors)
 		if(!(current_behavior.behavior_flags & AI_BEHAVIOR_CAN_PLAN_DURING_EXECUTION)) //We have a behavior that blocks planning
 			. = FALSE
@@ -258,15 +311,20 @@ multiple modular subtrees with behaviors
 /datum/ai_controller/proc/set_ai_status(new_ai_status)
 	if(ai_status == new_ai_status)
 		return FALSE //no change
-
+	
+	//remove old status, if we've got one
+	if(ai_status)
+		SSai_controllers.ai_controllers_by_status[ai_status] -= src
 	ai_status = new_ai_status
+	SSai_controllers.ai_controllers_by_status[new_ai_status] += src
 	switch(ai_status)
 		if(AI_STATUS_ON)
-			SSai_controllers.active_ai_controllers += src
 			START_PROCESSING(SSai_behaviors, src)
 		if(AI_STATUS_OFF)
 			STOP_PROCESSING(SSai_behaviors, src)
-			SSai_controllers.active_ai_controllers -= src
+			CancelActions()
+		if(AI_STATUS_IDLE)
+			STOP_PROCESSING(SSai_behaviors, src)
 			CancelActions()
 
 /datum/ai_controller/proc/PauseAi(time)
@@ -327,10 +385,18 @@ multiple modular subtrees with behaviors
 /datum/ai_controller/proc/on_sentience_lost()
 	SIGNAL_HANDLER
 	UnregisterSignal(pawn, COMSIG_MOB_LOGOUT)
-	set_ai_status(AI_STATUS_ON) //Can't do anything while player is connected
+	set_ai_status(AI_STATUS_IDLE) //Can't do anything while player is connected
 	RegisterSignal(pawn, COMSIG_MOB_LOGIN, PROC_REF(on_sentience_gained))
 
-/// Use this proc to define how your controller defines what access the pawn has for the sake of pathfinding, likely pointing to whatever ID slot is relevant
+// Turn the controller off if the pawn has been qdeleted
+/datum/ai_controller/proc/on_pawn_qdeleted()
+	SIGNAL_HANDLER
+	set_ai_status(AI_STATUS_OFF)
+	set_movement_target(type, null)
+	if(ai_movement.moving_controllers[src])
+		ai_movement.stop_moving_towards(src)
+
+/// Use this proc to define how your controller defines what access the pawn has for the sake of pathfinding. Return the access list you want to use
 /datum/ai_controller/proc/get_access()
 	return
 
@@ -344,6 +410,15 @@ multiple modular subtrees with behaviors
 		if(iter_behavior.required_distance < minimum_distance)
 			minimum_distance = iter_behavior.required_distance
 	return minimum_distance
+
+/// Returns true if we have a blackboard key with the provided key and it is not qdeleting
+/datum/ai_controller/proc/blackboard_key_exists(key)
+	var/datum/key_value = blackboard[key]
+	if (isdatum(key_value))
+		return !QDELETED(key_value)
+	if (islist(key_value))
+		return length(key_value) > 0
+	return !!key_value
 
 /**
  * Used to manage references to datum by AI controllers
@@ -360,7 +435,7 @@ multiple modular subtrees with behaviors
 	else if(isdatum(tracked_datum)) { \
 		var/datum/_tracked_datum = tracked_datum; \
 		if(!HAS_TRAIT_FROM(_tracked_datum, TRAIT_AI_TRACKING, "[REF(src)]_[key]")) { \
-			RegisterSignal(_tracked_datum, COMSIG_PARENT_QDELETING, PROC_REF(sig_remove_from_blackboard), override = TRUE); \
+			RegisterSignal(_tracked_datum, COMSIG_QDELETING, PROC_REF(sig_remove_from_blackboard), override = TRUE); \
 			ADD_TRAIT(_tracked_datum, TRAIT_AI_TRACKING, "[REF(src)]_[key]"); \
 		}; \
 	}; \
@@ -377,7 +452,7 @@ multiple modular subtrees with behaviors
 		var/datum/_tracked_datum = tracked_datum; \
 		REMOVE_TRAIT(_tracked_datum, TRAIT_AI_TRACKING, "[REF(src)]_[key]"); \
 		if(!HAS_TRAIT(_tracked_datum, TRAIT_AI_TRACKING)) { \
-			UnregisterSignal(_tracked_datum, COMSIG_PARENT_QDELETING); \
+			UnregisterSignal(_tracked_datum, COMSIG_QDELETING); \
 		}; \
 	}; \
 } while(FALSE)
@@ -395,6 +470,9 @@ multiple modular subtrees with behaviors
 	// Assume it is an error when trying to set a value overtop a list
 	if(islist(blackboard[key]))
 		CRASH("set_blackboard_key attempting to set a blackboard value to key [key] when it's a list!")
+	// Don't do anything if it's already got this value
+	if (blackboard[key] == thing)
+		return
 
 	// Clear existing values
 	if(!isnull(blackboard[key]))
@@ -402,6 +480,26 @@ multiple modular subtrees with behaviors
 
 	TRACK_AI_DATUM_TARGET(thing, key)
 	blackboard[key] = thing
+	post_blackboard_key_set(key)
+
+/**
+ * Helper to force a key to be a certain thing no matter what's already there
+ *
+ * Useful for if you're overriding a list with a new list entirely,
+ * as otherwise it would throw a runtime error from trying to override a list
+ *
+ * Not necessary to use if you aren't dealing with lists, as set_blackboard_key will clear the existing value
+ * in that case already, but may be useful for clarity.
+ *
+ * * key - A blackboard key
+ * * thing - a value to set the blackboard key to.
+ */
+/datum/ai_controller/proc/override_blackboard_key(key, thing)
+	if(blackboard[key] == thing)
+		return
+
+	clear_blackboard_key(key)
+	set_blackboard_key(key, thing)
 
 /**
  * Sets the key at index thing to the passed value
@@ -415,9 +513,14 @@ multiple modular subtrees with behaviors
 /datum/ai_controller/proc/set_blackboard_key_assoc(key, thing, value)
 	if(!islist(blackboard[key]))
 		CRASH("set_blackboard_key_assoc called on non-list key [key]!")
+	// Don't do anything if it's already got this value
+	if (blackboard[key][thing] == value)
+		return
+
 	TRACK_AI_DATUM_TARGET(thing, key)
 	TRACK_AI_DATUM_TARGET(value, key)
 	blackboard[key][thing] = value
+	post_blackboard_key_set(key)
 
 /**
  * Similar to [proc/set_blackboard_key_assoc] but operates under the assumption the key is a lazylist (so it will create a list)
@@ -429,9 +532,22 @@ multiple modular subtrees with behaviors
  */
 /datum/ai_controller/proc/set_blackboard_key_assoc_lazylist(key, thing, value)
 	LAZYINITLIST(blackboard[key])
+	// Don't do anything if it's already got this value
+	if (blackboard[key][thing] == value)
+		return
+
 	TRACK_AI_DATUM_TARGET(thing, key)
 	TRACK_AI_DATUM_TARGET(value, key)
 	blackboard[key][thing] = value
+	post_blackboard_key_set(key)
+
+/**
+ * Called after we set a blackboard key, forwards signal information.
+ */
+/datum/ai_controller/proc/post_blackboard_key_set(key)
+	if (isnull(pawn))
+		return
+	SEND_SIGNAL(pawn, COMSIG_AI_BLACKBOARD_KEY_SET(key))
 
 /**
  * Adds the passed "thing" to the associated key
@@ -519,8 +635,13 @@ multiple modular subtrees with behaviors
  * * key - A blackboard key
  */
 /datum/ai_controller/proc/clear_blackboard_key(key)
+	if(isnull(blackboard[key]))
+		return
 	CLEAR_AI_DATUM_TARGET(blackboard[key], key)
 	blackboard[key] = null
+	if(isnull(pawn))
+		return
+	SEND_SIGNAL(pawn, COMSIG_AI_BLACKBOARD_KEY_CLEARED(key))
 
 /**
  * Remove the passed thing from the associated blackboard key
@@ -583,6 +704,7 @@ multiple modular subtrees with behaviors
 			// We found the value that's been deleted, it was an assoc value. Clear it out entirely
 			else if(associated_value == source)
 				next_to_clear -= inner_value
+				SEND_SIGNAL(pawn, COMSIG_AI_BLACKBOARD_KEY_CLEARED(inner_value))
 
 		index += 1
 

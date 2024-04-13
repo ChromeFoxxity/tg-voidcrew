@@ -1,7 +1,7 @@
 /obj/item/forcefield_projector
 	name = "forcefield projector"
 	desc = "An experimental device that can create several forcefields at a distance."
-	icon = 'icons/obj/device.dmi'
+	icon = 'icons/obj/devices/tool.dmi'
 	icon_state = "signmaker_forcefield"
 	slot_flags = ITEM_SLOT_BELT
 	w_class = WEIGHT_CLASS_SMALL
@@ -10,7 +10,7 @@
 	worn_icon_state = "electronic"
 	lefthand_file = 'icons/mob/inhands/items/devices_lefthand.dmi'
 	righthand_file = 'icons/mob/inhands/items/devices_righthand.dmi'
-	custom_materials = list(/datum/material/iron=250, /datum/material/glass=500)
+	custom_materials = list(/datum/material/iron= SMALL_MATERIAL_AMOUNT * 2.5, /datum/material/glass= SMALL_MATERIAL_AMOUNT * 5)
 	var/max_shield_integrity = 250
 	var/shield_integrity = 250
 	var/max_fields = 3
